@@ -1,0 +1,9 @@
+
+
+a table of errors
+
+
+# user errors
+
+0 - user already exists
+1 - user creation failed

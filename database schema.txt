@@ -1,0 +1,12 @@
+
+
+CREATE TABLE users (
+id INTEGER NOT NULL PRIMARY KEY,
+auth TEXT NOT NULL UNIQUE,
+real_name TEXT NOT NULL UNIQUE,
+password TEXT NOT NULL,
+email TEXT NOT NULL
+);
+
+INSERT INTO users (auth, real_name, password, email) VALUES
+('cd3c37df-9efc-4242-ba85-2a92e2240570', 'kaspar', 'password', 'kaspar.bergert@gmail.com');
