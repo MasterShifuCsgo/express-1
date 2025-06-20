@@ -1,50 +1,61 @@
 const {v4: createUUID} = require("uuid");
-
-function isValidPassword(password){
-  /^[\w]+$/.test(password);
-}
-
-function isValidEmail(str) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
-}
-
-
+const {isValidEmail, isValidPassword} = require('../injection_checks/sql.js');
+const {checkIfExists} = require('../helpers/helpers.js');
 // when account is created, sends the auth back to indicate account creation.
+
+//awaitable createUser
+async function createUser(body, db){
+  return new Promise((resolve, reject) =>{    
+    const newUUID = createUUID(); //auth should always be unique.  
+
+    db.run("INSERT INTO users (auth, name, password, email) VALUES (?,?,?,?)", 
+      [newUUID, body.name, body.password, body.email], 
+        (err) => {
+          if(err){
+            console.log(err);
+            return reject({error: err, code: 1})
+          };     
+
+          console.log("Account created:", newUUID);             
+          resolve({auth: newUUID});
+    });
+  })
+}
 
 //used when user registers
 function createAccount(db){  
-  return function(req, res){        
+  return async function(req, res){        
     const body = req.body;            
     //check if body has attributes 'email', 'password';
     if(!('email' in body) && ('password' in body) && ('name' in body)){
-      return res.send({error : "Body has no email, password or name"});      
+      return res.status(500).send({error : "Body has no email, password or name", code: 1});      
     }      
     
-    //prevent SQL injection
-    if(isValidPassword(body.password)){
-      console.log("password valid");
-    }
-    if(isValidEmail(body.email)){
-      console.log("email valid");
-    }
+    //prevent SQL injection    
+    let check = isValidPassword(body.password);
+    if(!check){return res.status(500).send({error: "Please send valid password with ASCII characters", code: 1}); }
+    check = isValidEmail(body.email);
+    if(!check){return res.status(500).send({error: "Please send valid email with ASCII characters", code: 1}); }    
     
-    //creating account in database    
-    //check if name already exists in database
-    db.get("select 1 from users where real_name=?", [body.name], (err, row) => {
-      if(err){console.log(err);};
-      if(row){return res.send({error: "user with similar name exists", code: 0});}
+    //run both get funcitons async, if one fails, sends error message.
+    const hasName = db.prepare("select * from users where name=?");    
+    const hasEmail = db.prepare("select * from users where email=?");            
     
-      const newUUID = createUUID(); 
+    const name = await checkIfExists(hasName, body.name);
+    const email = await checkIfExists(hasEmail, body.email);
+    
 
-      db.run("INSERT INTO users (auth, real_name, password, email) VALUES (?,?,?,?)", [newUUID, body.name, body.password, body.email], 
-        (err) => {
-        if(err){
-          res.status(500).send({error: "Failed to create user", code: 1})
-        };
-          res.send({auth: newUUID});
-        });
-    })
-  };
-}
+    if(!name && !email){
+      try {
+        const auth = await createUser(body, db); //sends auth with uuid
+        res.status(201).send(auth);
+      }catch (err){
+        res.status(500).send({code: 1, error: err});
+      }
+    }    
+    res.status(409).send({error: "User already exists", code: 0});
+
+    }      
+  }
 
 module.exports = createAccount;

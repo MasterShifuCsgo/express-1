@@ -1,7 +1,7 @@
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
+const sqlite3 = require("sqlite3");
 const cookieParser = require('cookie-parser');
-const db = new sqlite3.Database("./database.db");
+const db = new sqlite3.Database(process.env.TESTING || "./database.db");
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -25,3 +25,4 @@ app.listen(port, (err) => {
   console.log(`started listening on port ${port}`);  
 });
 
+module.exports = app;
